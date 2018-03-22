@@ -1,11 +1,21 @@
 - name: Install and Configure MariaDB
-  hosts: TEST 
+  hosts: TEST
+  gather_facts: no
+  tags:
+    - DB
+  vars:
+    DBNAME: studentapp
+    DBUSER: student
+    DBPASS: student@1
   become: yes 
   tasks:
     - name: Install MariaDB Server 
       package:
-        name: mariadb-server
-        state: present 
+        name: "{{item}}"
+        state: present
+      with_items:
+        - MySQL-python
+        - mariadb-server
 
     - name: Start MariaDB 
       service:
@@ -13,3 +23,54 @@
         state: started 
         enabled: yes 
         
+    - name: Create Student DB in MariaDB
+      mysql_db:
+        name: "{{DBNAME}}"
+        state: present 
+      
+    - name: Copy SQL file 
+      copy:
+        src: files/studentapp.sql 
+        dest: /tmp/studentapp.sql 
+
+    - name: Create Database schema 
+      mysql_db:
+        state: import
+        name: all
+        target: /tmp/studentapp.sql
+
+    - name: Create DB User 
+      mysql_user:
+        name: "{{DBUSER}}"
+        password: "{{DBPASS}}"
+        host: workstation.c.devops26-195800.internal
+        host_all: yes
+        priv: "{{DBNAME}}.*:ALL,GRANT"
+        state: present
+
+- name: Install and Configure Tomcat
+  hosts: TEST
+  become: yes
+  gather_facts: no
+  tags:
+    - APP
+  vars:
+    TURL: https://archive.apache.org/dist/tomcat/tomcat-8/v8.5.29/bin/apache-tomcat-8.5.29.tar.gz
+  tasks:
+    - name: Install Java 
+      package:
+        name: java 
+        state: installed 
+
+    - name: Get tar file 
+      shell: echo {{TURL}} | awk -F / '{print $NF}'
+      register: out 
+
+    - name: Define TAR File Variable 
+      set_fact:
+        T_TAR_LOC: "{{out.stdout}}"
+
+    - name: Download Tomcat 
+      get_url:
+        url: "{{TURL}}"
+        dest: "/opt/{{T_TAR_LOC}}"
