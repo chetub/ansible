@@ -62,15 +62,47 @@
         name: java 
         state: installed 
 
-    - name: Get tar file 
-      shell: echo {{TURL}} | awk -F / '{print $NF}'
+    - name: Get tar dir
+      shell: echo {{TURL}} | awk -F / '{print $NF}' | sed -e 's/.tar.gz//'
       register: out 
 
-    - name: Define TAR File Variable 
+    - name: Define TAR Dir Variable 
       set_fact:
-        T_TAR_LOC: "{{out.stdout}}"
+        T_DIR: "/opt/{{out.stdout}}"
 
-    - name: Download Tomcat 
+    - name: Check Tomcat exists or not. 
+      stat:
+        path: "{{T_DIR}}"
+      register: out 
+
+    - name: Download Tomcat and extract it
+      unarchive:
+        src: "{{TURL}}"
+        dest: "/opt"
+        remote_src: yes
+      when: out.stat.exists == false
+
+    - name: Find webapps 
+      find:
+        paths: "{{T_DIR}}/webapps"
+        file_type: any
+      register: out
+
+    - name: Delete files 
+      file:
+        path: "{{item.path}}"
+        state: absent
+      with_items: "{{out.files}}"
+
+    - name: Download War file 
       get_url:
-        url: "{{TURL}}"
-        dest: "/opt/{{T_TAR_LOC}}"
+        url: https://github.com/cit-ager/APP-STACK/raw/master/student.war
+        dest: "{{T_DIR}}/webapps/student.war"
+
+    - name: Download JDBC jar file 
+      get_url: 
+        url: https://github.com/cit-ager/APP-STACK/raw/master/mysql-connector-java-5.1.40.jar
+        dest: "{{T_DIR}}/lib/mysql-connector-java-5.1.40.jar"
+        
+    
+
