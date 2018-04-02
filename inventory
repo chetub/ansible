@@ -1,7 +1,7 @@
 10.142.0.7
 [TEST]
 #10.142.0.7 #URL=host.google.com
-10.142.0.10
+10.142.0.3
 
 [TEST:vars]
 URL=group.google.com
